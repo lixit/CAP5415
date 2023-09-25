@@ -4,6 +4,7 @@ from scipy import ndimage
 from scipy import linalg
 from scipy.linalg import sqrtm
 import matplotlib.pyplot as plt
+from collections import deque
 import pdb 
 
 
@@ -133,19 +134,10 @@ def non_max_supression(det, phase):
     for i in range(i_h):
         for j in range(i_w):
             # Get orientation
-            theta = phase[i, j]
+            theta = phase[i, j] % 180
             # Get magnitude
             mag = det[i, j]
-            if theta < 26.56:
-                # compare left and right
-                theta_26_count += 1
-                left = 0 if i - 1 < 0 else det[i-1, j]
-                right = 0 if i + 1 >= i_h else det[i+1, j]
-                if mag >= left and mag >= right:
-                    output_image[i, j] = mag
-                else:
-                    output_image[i, j] = 0
-            elif theta > 63.43:
+            if theta < 22.5 or theta > 157.5:
                 # compare up and down
                 theta_63_count += 1
                 up = 0 if j - 1 < 0 else det[i, j-1]
@@ -154,12 +146,30 @@ def non_max_supression(det, phase):
                     output_image[i, j] = mag
                 else:
                     output_image[i, j] = 0
-            else:
+            elif theta > 67.5 and theta < 112.5:
+                # compare left and right
+                theta_26_count += 1
+                left = 0 if i - 1 < 0 else det[i-1, j]
+                right = 0 if i + 1 >= i_h else det[i+1, j]
+                if mag >= left and mag >= right:
+                    output_image[i, j] = mag
+                else:
+                    output_image[i, j] = 0
+            elif theta >= 22.5 and theta <= 67.5:
                 # compare diagonal
                 theta_middle_count += 1
                 up_left = 0 if i - 1 < 0 or j - 1 < 0 else det[i-1, j-1]
                 down_right = 0 if i + 1 >= i_h or j + 1 >= i_w else det[i+1, j+1]
                 if mag >= up_left and mag >= down_right:
+                    output_image[i, j] = mag
+                else:
+                    output_image[i, j] = 0
+            elif theta >= 112.5 and theta <= 157.5:
+                # compare diagonal
+                theta_middle_count += 1
+                up_right = 0 if i + 1 <= i_h or j - 1 < 0 else det[i+1, j-1]
+                down_left = 0 if i - 1 < 0 or j + 1 >= i_w else det[i-1, j+1]
+                if mag >= up_right and mag >= down_left:
                     output_image[i, j] = mag
                 else:
                     output_image[i, j] = 0
@@ -212,13 +222,62 @@ def DFS(img):
                     # If yes, make it strong
                     img[i, j] = 255
     return img
+
+def iterative_BFS(img, i, j, low_threshold, high_treshold):
+    '''
+    Return True If (i,j) connect to a strong pixel directly or indirectly via middle pixel, 
+    Input:
+        img: image
+        i, j: middle pixel, img[i, j] >= low_threshold and img[i, j] < high_threshold
+        low_threshold: low threshold
+        high_threshold: high threshold
+    '''
+    i_h, i_w = img.shape
+    # use deque to store `middle` pixels
+    q = deque()
+    q.append((i, j))
+    # remember seen `middle`` pixels, avoid check it again, could aslo be strong pixels
+    seen = set()
+    seen.add((i, j))
+    while len(q) > 0:
+        i, j = q.popleft()
+        print(i, j)
+        # 4 directions to go: down -> right -> up -> left (0,1)(1,0)(0,-1)(-1,0)
+        offset1 = [0, 1, 0, -1, 0]
+        # another 4 directions to go: downright -> downright -> downleft -> upleft (1,1)(1,-1)(-1,-1)(-1,1)
+        offset2 = [1, 1, -1, -1, 1]
+        # check connectoin in 8 ways
+        for k in range(4):
+            ti = i + offset1[k]
+            tj = j + offset1[k+1]
+            if ti >= 0 and ti < i_h and tj >= 0 and tj < i_w:
+                if (ti, tj) in seen:
+                    pass
+                elif img[ti, tj] >= high_treshold:
+                    return seen, True
+                elif img[ti, tj] >= low_threshold:
+                    seen.add((ti, tj))
+                    q.append((ti, tj))
+            ti = i + offset2[k]
+            tj = j + offset2[k+1]
+            if ti >= 0 and ti < i_h and tj >= 0 and tj < i_w:
+                if (ti, tj) in seen:
+                    pass
+                elif img[ti, tj] >= high_treshold:
+                    return seen, True
+                elif img[ti, tj] >= low_threshold:
+                    seen.add((ti, tj))
+                    q.append((ti, tj))
+
+    return seen, False
+
     
 def check_link(img, i, j, low_threshold, high_treshold, mem):
     '''
     If i,j connect to a strong pixel directly or indirectly via middle pixel, return True
     Input:
         img: image
-        i, j: middle pixel
+        i, j: middle pixel, img[i, j] >= low_threshold and img[i, j] < high_threshold
         low_threshold: low threshold
         high_threshold: high threshold
     '''
@@ -288,8 +347,9 @@ def hysteresis_thresholding(img, low_ratio, high_ratio):
     # Create output image
     output_image = np.zeros((i_h, i_w))
     # Link to strong map
-    link_to_strong = np.zeros((i_h, i_w))
+    link_to_strong = set()
     # Iterate over image
+    not_strong = set()
     for i in range(i_h):
         for j in range(i_w):
             # If pixel is strong, keep it
@@ -297,28 +357,34 @@ def hysteresis_thresholding(img, low_ratio, high_ratio):
                 output_image[i, j] = 255
             # If pixel is weak, check if it is linked to a strong pixel
             elif img[i, j] >= low_threshold:
-                mem = {}
-                link_to_strong[i, j] = check_link(img, i, j, low_threshold, high_threshold, mem)
-                print("is linked to strong pixel: ", link_to_strong[i, j])
-                # # Check if pixel is in a local window of a strong pixel
-                # if np.max(img[max(i-1, 0):min(i+2, i_h), max(j-1, 0):min(j+2, i_w)]) >= high_threshold:
-                #     # If yes, make it strong
-                #     output_image[i, j] = 255
-    # Perform DFS to make all strong-linked pixels strong
-    output_image = DFS(output_image)
+                if (i, j) in link_to_strong:
+                    print("seen, strong")
+                    output_image[i, j] = 255
+                elif (i, j) in not_strong:
+                    pass
+                    print("seen, not strong")
+                else:
+                    strong_pixels, is_strong = iterative_BFS(img, i, j, low_threshold, high_threshold)
+                    if is_strong:
+                        output_image[i, j] = 255
+                        link_to_strong.update(strong_pixels)
+                        print("is linked to strong pixel: ", (i, j))
+                    else:
+                        not_strong.update(strong_pixels)
     return output_image
 
 def main():
     # Initialize values
     # You can choose any sigma values like 1, 0.5, 1.5, etc
-    sigma = 3
+    sigma = 0.5
+    size = 5
 
 
     # Read the image in grayscale mode using opencv
     I = cv2.imread(r'C:\Users\a\Downloads\CAP5415\46076.jpg', cv2.IMREAD_GRAYSCALE)
 
     # Create a gaussian kernel 1XN matrix
-    G = gaussian_kernel(size=3, sigma=sigma)
+    G = gaussian_kernel(size=size, sigma=sigma)
 
 
     # # Convolution of G and I
@@ -330,10 +396,11 @@ def main():
     # plt.subplot(122),plt.imshow(I_yy,cmap = 'gray')
     # plt.title('Gaussian along y Image'), plt.xticks([]), plt.yticks([])
     # plt.show()
+    print(np.max(I), np.min(I))
 
 
     # Get the First Derivative Kernel
-    G_x = gaussian_first_derivative_kernel(size=3, sigma=sigma)
+    G_x = gaussian_first_derivative_kernel(size=size, sigma=sigma)
 
     # Derivative of Gaussian Convolution
     I_x_prime = convolution_1d(I, G_x)
@@ -343,48 +410,52 @@ def main():
     # Need to scale from 0-1 to 0-255.
     #abs_grad_x = (( (I_xx - np.min(I_xx)) / (np.max(I_xx) - np.min(I_xx)) ) * 255.).astype(np.uint8)  
     #abs_grad_y = (( (I_yy - np.min(I_yy)) / (np.max(I_yy) - np.min(I_yy)) ) * 255.).astype(np.uint8)
-    I_x_prime = (( (I_x_prime - np.min(I_x_prime)) / (np.max(I_x_prime) - np.min(I_x_prime)) ) * 255.).astype(np.uint8)
-    I_y_prime = (( (I_y_prime - np.min(I_y_prime)) / (np.max(I_y_prime) - np.min(I_y_prime)) ) * 255.).astype(np.uint8)
+    # I_x_prime = (( (I_x_prime - np.min(I_x_prime)) / (np.max(I_x_prime) - np.min(I_x_prime)) ) * 255.)
+    # I_y_prime = (( (I_y_prime - np.min(I_y_prime)) / (np.max(I_y_prime) - np.min(I_y_prime)) ) * 255.)
+
+    # plt.show()
     
 
     # Compute magnitude
     Mag = np.sqrt(np.square(I_x_prime) + np.square(I_y_prime))
+    # Mag = (( (Mag - np.min(Mag)) / (np.max(Mag) - np.min(Mag)) ) * 255)
+    print(np.max(I_x_prime), np.min(I_x_prime))
+    print(np.max(I_y_prime), np.min(I_y_prime))
+    print(np.max(Mag), np.min(Mag))
 
     # Compute orientation
     # arctans return radians, convert to degrees.  pi radians = 180 degrees.
     Ori = np.arctan2(I_y_prime, I_x_prime) * 180 / np.pi
-    # We can prove that the orientation is always between 0 and 90 degrees.
-    assert np.all(np.logical_and(Ori >= 0, Ori <= 90))
-    
     # normalize the orientation to be between 0 and 360 degrees.
-    # Ori = Ori % 360
+    Ori = Ori % 360
+    print(np.max(Ori), np.min(Ori))
 
-    # plt.subplot(121),plt.imshow(I_x_prime, cmap = 'gray')
-    # plt.title('along x Image'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(122),plt.imshow(I_y_prime, cmap = 'gray')
-    # plt.title('along y Image'), plt.xticks([]), plt.yticks([])
-    # plt.show()
-    # plt.subplot(121),plt.imshow(Mag, cmap = 'gray')
-    # plt.title('Mag'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(122),plt.imshow(Ori, cmap = 'gray')
-    # plt.title('Ori'), plt.xticks([]), plt.yticks([])
-    # plt.show()
+
+
 
     
     # Compute non-max suppression
     M_nms, O_nms = non_max_supression(Mag, Ori)
 
-    # plot the image using matplotlib
-    # plt.subplot(121),plt.imshow(Mag, cmap = 'gray')
-    # plt.title('Mag'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(122),plt.imshow(M_nms, cmap = 'gray')
-    # plt.title('nms'), plt.xticks([]), plt.yticks([])
 
-    # plt.show()
+    edge = cv2.Canny(I, 100, 200)
 
     #Compute thresholding and then hysteresis
-    M_thresholded = hysteresis_thresholding(M_nms, 0.5, 0.75)
+    M_thresholded = hysteresis_thresholding(M_nms, 0.09, 0.15)
 
+    plt.subplot(231),plt.imshow(I_x_prime, cmap = 'gray')
+    plt.title('along x Image'), plt.xticks([]), plt.yticks([])
+    plt.subplot(232),plt.imshow(I_y_prime, cmap = 'gray')
+    plt.title('along y Image'), plt.xticks([]), plt.yticks([])
+    plt.subplot(233),plt.imshow(Mag, cmap = 'gray')
+    plt.title('Mag'), plt.xticks([]), plt.yticks([])
+    plt.subplot(234),plt.imshow(M_nms, cmap = 'gray')
+    plt.title('M_nms'), plt.xticks([]), plt.yticks([])
+    plt.subplot(235),plt.imshow(M_thresholded, cmap = 'gray')
+    plt.title('M_thresholded'), plt.xticks([]), plt.yticks([])
+    plt.subplot(236),plt.imshow(edge, cmap = 'gray')
+    plt.title('Canny'), plt.xticks([]), plt.yticks([])
+    plt.show()
 
 
     
