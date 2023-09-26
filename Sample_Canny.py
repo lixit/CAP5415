@@ -87,9 +87,9 @@ def gaussian_first_derivative_kernel(size=3, sigma=1):
     return kernel_1d
 
 
-def non_max_supression(magnitude, ori):
+def non_max_suppression(magnitude, ori):
     '''
-    Performs non-maxima supression for given magnitude and orientation.
+    Performs non-maxima suppression for given magnitude and orientation.
     Inputs: 
       magnitude: H x W shape numpy array
       ori: in radians, in the range [-pi, pi]
@@ -107,37 +107,47 @@ def non_max_supression(magnitude, ori):
     output_image = np.zeros((i_h, i_w))
 
     # find the max value in 3x3 window at current pixel's orientation
+    # be careful: the y axis is downward.
+    #  0 ---------> x
+    #  |
+    #  |
+    #  V
+    #  y
     for i in range(i_h):
         for j in range(i_w):
+            # 8 directions to go
+            up = 0 if j - 1 < 0 else magnitude[i, j-1]
+            down = 0 if j + 1 >= i_w else magnitude[i, j+1]
+            left = 0 if i - 1 < 0 else magnitude[i-1, j]
+            right = 0 if i + 1 >= i_h else magnitude[i+1, j]
+            up_left = 0 if i - 1 < 0 or j - 1 < 0 else magnitude[i-1, j-1]
+            up_right = 0 if i + 1 <= i_h or j - 1 < 0 else magnitude[i+1, j-1]
+            down_left = 0 if i - 1 < 0 or j + 1 >= i_w else magnitude[i-1, j+1]
+            down_right = 0 if i + 1 >= i_h or j + 1 >= i_w else magnitude[i+1, j+1]
+
             theta = ori[i, j]
-            # Get magnitude
+            if theta < 45:
+                mag1 = theta / 45 * down_right + (45 - theta) / 45 * right
+                mag2 = theta / 45 * up_left + (45 - theta) / 45 * left
+                
+            elif theta >= 45 and theta < 90:
+                thera_percent = (theta - 45) / 45
+                mag1 = thera_percent * down + (1 - thera_percent) * down_right
+                mag2 = thera_percent * up + (1 - thera_percent) * up_left
+
+            elif theta >= 90 and theta < 135:
+                thera_percent = (theta - 90) / 45
+                mag1 = thera_percent * down_left + (1 - thera_percent) * down
+                mag2 = thera_percent * up_right + (1 - thera_percent) * up
+
+            else: # theta >= 135
+                thera_percent = (theta - 135) / 45
+                mag1 = thera_percent * left + (1 - thera_percent) * down_left
+                mag2 = thera_percent * right + (1 - thera_percent) * up_right
+            
             mag = magnitude[i, j]
-            # if this is near a horizontal line, compare left and right pixels
-            if theta < 22.5 or theta > 157.5:
-                # pixel out-of-boundary considered as 0
-                left = 0 if i - 1 < 0 else magnitude[i-1, j]
-                right = 0 if i + 1 >= i_h else magnitude[i+1, j]
-                # maximum value preserved, others set to 0
-                if mag >= left and mag >= right:
-                    output_image[i, j] = mag
-            # if this is near a vertical line, compare up and down pixels
-            elif theta > 67.5 and theta < 112.5:
-                up = 0 if j - 1 < 0 else magnitude[i, j-1]
-                down = 0 if j + 1 >= i_w else magnitude[i, j+1]
-                if mag >= up and mag >= down:
-                    output_image[i, j] = mag
-            # if this is near a diagonal line
-            elif theta >= 22.5 and theta <= 67.5:
-                up_left = 0 if i - 1 < 0 or j - 1 < 0 else magnitude[i-1, j-1]
-                down_right = 0 if i + 1 >= i_h or j + 1 >= i_w else magnitude[i+1, j+1]
-                if mag >= up_left and mag >= down_right:
-                    output_image[i, j] = mag
-            # if this is near a diagonal line
-            else: # theta >= 112.5 and theta <= 157.5:
-                up_right = 0 if i + 1 <= i_h or j - 1 < 0 else magnitude[i+1, j-1]
-                down_left = 0 if i - 1 < 0 or j + 1 >= i_w else magnitude[i-1, j+1]
-                if mag >= up_right and mag >= down_left:
-                    output_image[i, j] = mag
+            if mag > mag1 and mag > mag2:
+                output_image[i, j] = mag
 
     return output_image
 
@@ -273,7 +283,7 @@ def main():
     Ori = np.arctan2(I_y_prime, I_x_prime) 
 
     # 6. Compute non-max suppression
-    M_nms = non_max_supression(Mag, Ori)
+    M_nms = non_max_suppression(Mag, Ori)
 
     plt.subplot(131),plt.imshow(Mag, cmap = 'gray')
     plt.title('Mag'), plt.xticks([]), plt.yticks([])
