@@ -333,19 +333,19 @@ def main():
     # 6. Compute non-max suppression
     M_nms = non_max_suppression(Mag, Ori)
 
-    # convert to uint8 for display
-    cv_Mag = (Mag / np.max(Mag) * 255).astype(np.uint8)
-    cv_M_nms = (M_nms / np.max(M_nms) * 255).astype(np.uint8)
+    # # convert to uint8 for display
+    # cv_Mag = (Mag / np.max(Mag) * 255).astype(np.uint8)
+    # cv_M_nms = (M_nms / np.max(M_nms) * 255).astype(np.uint8)
 
-    window = cv2.namedWindow("Images", cv2.WINDOW_NORMAL)
-    # cv2.imshow("Images", I)
-    cv2.imshow("Images", np.hstack((cv_Mag, cv_M_nms)))
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # window = cv2.namedWindow("Images", cv2.WINDOW_NORMAL)
+    # # cv2.imshow("Images", I)
+    # cv2.imshow("Images", np.hstack((cv_Mag, cv_M_nms)))
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
 
     # 7. Hysteresis thresholding
-    M_thresholded = hysteresis_thresholding(M_nms, 0.1, 0.2)
+    myCanny = hysteresis_thresholding(M_nms, 0.1, 0.2)
 
     # use opencv's canny to compare the result
     edge = cv2.Canny(I, 100, 200)
@@ -360,8 +360,13 @@ def main():
     plt.title('I_y_prime'), plt.xticks([]), plt.yticks([])
     plt.subplot(235),plt.imshow(Mag, cmap = 'gray')
     plt.title('Magnitude'), plt.xticks([]), plt.yticks([])
-    plt.subplot(236),plt.imshow(M_thresholded, cmap = 'gray')
-    plt.title('my canny'), plt.xticks([]), plt.yticks([])
+    plt.subplot(236),plt.imshow(M_nms, cmap = 'gray')
+    plt.title('NMS'), plt.xticks([]), plt.yticks([])
+    plt.tight_layout()
+    plt.show()
+
+    plt.imshow(myCanny, cmap = 'gray')
+    plt.title('myCanny')
     plt.tight_layout()
     plt.show()
 
