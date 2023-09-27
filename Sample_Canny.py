@@ -99,9 +99,9 @@ def non_max_suppression(magnitude, ori):
     # Get image size
     i_h, i_w = magnitude.shape
     # convert orientation from radians to degrees [-180, 180]
-    ori = ori * 180. / np.pi
+    angle = ori * 180. / np.pi
     # cast to [0, 180], e.g. -315 -> 45. Only the line's orientation is enough
-    ori[ori < 0] += 180
+    angle[angle < 0] += 180
 
     # Create output image
     output_image = np.zeros((i_h, i_w))
@@ -116,16 +116,16 @@ def non_max_suppression(magnitude, ori):
     for i in range(i_h):
         for j in range(i_w):
             # 8 directions to go
-            up = 0 if j - 1 < 0 else magnitude[i, j-1]
-            down = 0 if j + 1 >= i_w else magnitude[i, j+1]
-            left = 0 if i - 1 < 0 else magnitude[i-1, j]
-            right = 0 if i + 1 >= i_h else magnitude[i+1, j]
+            up = 0 if i + 1 >= i_h else magnitude[i+1, j]
+            down = 0 if i - 1 < 0 else magnitude[i-1, j]
+            left = 0 if j - 1 < 0 else magnitude[i, j-1]
+            right = 0 if j + 1 >= i_w else magnitude[i, j+1]
             up_left = 0 if i - 1 < 0 or j - 1 < 0 else magnitude[i-1, j-1]
-            up_right = 0 if i + 1 <= i_h or j - 1 < 0 else magnitude[i+1, j-1]
-            down_left = 0 if i - 1 < 0 or j + 1 >= i_w else magnitude[i-1, j+1]
+            up_right = 0 if i - 1 < 0 or j + 1 >= i_w else magnitude[i-1, j+1]
+            down_left = 0 if i + 1 <= i_h or j - 1 < 0 else magnitude[i+1, j-1]
             down_right = 0 if i + 1 >= i_h or j + 1 >= i_w else magnitude[i+1, j+1]
 
-            theta = ori[i, j]
+            theta = angle[i, j]
             if theta < 45:
                 mag1 = theta / 45 * down_right + (45 - theta) / 45 * right
                 mag2 = theta / 45 * up_left + (45 - theta) / 45 * left
@@ -151,6 +151,56 @@ def non_max_suppression(magnitude, ori):
 
     return output_image
 
+def non_max_suppression2(magnitude, ori):
+    '''
+    Old version, use 4 directions and no interpolation
+    '''
+    # Get image size
+    i_h, i_w = magnitude.shape
+    # convert orientation from radians to degrees [-180, 180]
+    ori = ori * 180. / np.pi
+    # cast to [0, 180], e.g. -315 -> 45. Only the line's orientation is enough
+    ori[ori < 0] += 180
+
+    # Create output image
+    output_image = np.zeros((i_h, i_w))
+
+    # find the max value in 3x3 window at current pixel's orientation
+    #  0 ---------> x
+    #  |
+    #  |
+    #  V
+    #  y
+    for i in range(i_h):
+        for j in range(i_w):
+            theta = ori[i, j]
+            mag = magnitude[i, j]
+            # if this is near a horizontal line, compare left and right pixels
+            if theta < 22.5 or theta > 157.5:
+                left = 0 if j - 1 < 0 else magnitude[i, j-1]
+                right = 0 if j + 1 >= i_w else magnitude[i, j+1]
+                if mag > left and mag > right:
+                    output_image[i, j] = mag
+            # if this is near a vertical line, compare up and down pixels
+            elif theta > 67.5 and theta < 112.5:
+                up = 0 if i + 1 >= i_h else magnitude[i+1, j]
+                down = 0 if i - 1 < 0 else magnitude[i-1, j]
+                if mag > up and mag > down:
+                    output_image[i, j] = mag
+            # if this is near a diagonal line
+            elif theta >= 22.5 and theta <= 67.5:
+                up_left = 0 if i - 1 < 0 or j - 1 < 0 else magnitude[i-1, j-1]
+                down_right = 0 if i + 1 >= i_h or j + 1 >= i_w else magnitude[i+1, j+1]
+                if mag > up_left and mag > down_right:
+                    output_image[i, j] = mag
+            # if this is near a diagonal line
+            else: # theta >= 112.5 and theta <= 157.5:
+                up_right = 0 if i - 1 < 0 or j + 1 >= i_w else magnitude[i-1, j+1]
+                down_left = 0 if i + 1 <= i_h or j - 1 < 0 else magnitude[i+1, j-1]
+                if mag > up_right and mag > down_left:
+                    output_image[i, j] = mag
+    
+    return output_image
 
 def iterative_BFS(img, i, j, low_threshold, high_treshold):
     '''
@@ -251,11 +301,11 @@ def hysteresis_thresholding(img, low_ratio, high_ratio):
 def main():
     # Initialize values
     # You can choose any sigma values like 1, 0.5, 1.5, etc
-    sigma = 1.5
-    size = 5
+    sigma = 0.5
+    size = 11
 
     # 1. Read the image in grayscale mode using opencv
-    I = cv2.imread(r'C:\Users\a\Downloads\CAP5415\198023.jpg', cv2.IMREAD_GRAYSCALE)
+    I = cv2.imread(r'C:\Users\a\Downloads\CAP5415\22090.jpg', cv2.IMREAD_GRAYSCALE)
 
     # 2. Create a one-dimensional gaussian kernel. Returns 1XN matrix
     G = gaussian_kernel(size=size, sigma=sigma)
@@ -275,8 +325,6 @@ def main():
 
     # 5. Compute magnitude
     Mag = np.sqrt(np.square(I_x_prime) + np.square(I_y_prime))
-    # normalize the magnitude to be [0, 255]
-    Mag = Mag / np.max(Mag) * 255
 
     # Compute orientation
     # np.arctan2() returns radian, in the range [-pi, pi]. pi radians = 180 degrees.
@@ -285,18 +333,19 @@ def main():
     # 6. Compute non-max suppression
     M_nms = non_max_suppression(Mag, Ori)
 
-    plt.subplot(131),plt.imshow(Mag, cmap = 'gray')
-    plt.title('Mag'), plt.xticks([]), plt.yticks([])
-    plt.subplot(132),plt.imshow(Ori, cmap = 'gray')
-    plt.title('Ori'), plt.xticks([]), plt.yticks([])
-    plt.subplot(133),plt.imshow(M_nms,cmap = 'gray')
-    plt.title('M_nms'), plt.xticks([]), plt.yticks([])
-    plt.tight_layout()
-    plt.show()
+    # convert to uint8 for display
+    cv_Mag = (Mag / np.max(Mag) * 255).astype(np.uint8)
+    cv_M_nms = (M_nms / np.max(M_nms) * 255).astype(np.uint8)
+
+    window = cv2.namedWindow("Images", cv2.WINDOW_NORMAL)
+    # cv2.imshow("Images", I)
+    cv2.imshow("Images", np.hstack((cv_Mag, cv_M_nms)))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
     # 7. Hysteresis thresholding
-    M_thresholded = hysteresis_thresholding(M_nms, 0.05, 0.2)
+    M_thresholded = hysteresis_thresholding(M_nms, 0.1, 0.2)
 
     # use opencv's canny to compare the result
     edge = cv2.Canny(I, 100, 200)
@@ -312,7 +361,7 @@ def main():
     plt.subplot(235),plt.imshow(Mag, cmap = 'gray')
     plt.title('Magnitude'), plt.xticks([]), plt.yticks([])
     plt.subplot(236),plt.imshow(M_thresholded, cmap = 'gray')
-    plt.title('canny'), plt.xticks([]), plt.yticks([])
+    plt.title('my canny'), plt.xticks([]), plt.yticks([])
     plt.tight_layout()
     plt.show()
 
