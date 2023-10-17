@@ -20,8 +20,8 @@ def train(model, device, train_loader, optimizer, criterion, epoch, batch_size):
     train_loader: dataloader for training samples.
     optimizer: optimizer to use for model parameter updates.
     criterion: used to compute loss for prediction and target 
-    epoch: Current epoch to train for.
-    batch_size: Batch size to be used.
+    epoch: Current epoch. Only used for logging.
+    batch_size: Batch size used. Only used for logging.
     '''
     
     # Set model to train mode before each epoch
@@ -43,13 +43,9 @@ def train(model, device, train_loader, optimizer, criterion, epoch, batch_size):
         
         # Do forward pass for current set of data
         output = model(data)
-        
-        # ======================================================================
+         
         # Compute loss based on criterion
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-        # Remove NotImplementedError and assign correct loss function.
-        loss = NotImplementedError()
+        loss = criterion(output, target)
         
         # Computes gradient based on final loss
         loss.backward()
@@ -63,17 +59,13 @@ def train(model, device, train_loader, optimizer, criterion, epoch, batch_size):
         # Get predicted index by selecting maximum log-probability
         pred = output.argmax(dim=1, keepdim=True)
         
-        # ======================================================================
         # Count correct predictions overall 
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-        # Remove NotImplementedError and assign counting function for correct predictions.
-        correct = NotImplementedError()
+        correct += pred.eq(target.view_as(pred)).sum().item()
         
     train_loss = float(np.mean(losses))
     train_acc = correct / ((batch_idx+1) * batch_size)
-    print('Train set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        float(np.mean(losses)), correct, (batch_idx+1) * batch_size,
+    print('Train set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+        train_loss, correct, (batch_idx+1) * batch_size,
         100. * correct / ((batch_idx+1) * batch_size)))
     return train_loss, train_acc
     
@@ -103,13 +95,9 @@ def test(model, device, test_loader):
             # Predict for data by doing forward pass
             output = model(data)
             
-            # ======================================================================
             # Compute loss based on same criterion as training
-            # ----------------- YOUR CODE HERE ----------------------
-            #
-            # Remove NotImplementedError and assign correct loss function.
-            # Compute loss based on same criterion as training 
-            loss = NotImplementedError()
+            criterion = nn.CrossEntropyLoss()
+            loss = criterion(output, target)
             
             # Append loss to overall test loss
             losses.append(loss.item())
@@ -117,26 +105,24 @@ def test(model, device, test_loader):
             # Get predicted index by selecting maximum log-probability
             pred = output.argmax(dim=1, keepdim=True)
             
-            # ======================================================================
             # Count correct predictions overall 
-            # ----------------- YOUR CODE HERE ----------------------
-            #
-            # Remove NotImplementedError and assign counting function for correct predictions.
-            correct = NotImplementedError()
+            correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss = float(np.mean(losses))
     accuracy = 100. * correct / len(test_loader.dataset)
 
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset), accuracy))
     
     return test_loss, accuracy
     
 
 def run_main(FLAGS):
+
+    writer = SummaryWriter(FLAGS.log_dir)
     # Check if cuda is available
     use_cuda = torch.cuda.is_available()
-    
+
     # Set proper device based on cuda availability 
     device = torch.device("cuda" if use_cuda else "cpu")
     print("Torch device selected: ", device)
@@ -144,19 +130,13 @@ def run_main(FLAGS):
     # Initialize the model and send to device 
     model = ConvNet(FLAGS.mode).to(device)
     
-    # ======================================================================
-    # Define loss function.
-    # ----------------- YOUR CODE HERE ----------------------
-    #
-    # Remove NotImplementedError and assign correct loss function.
-    criterion = NotImplementedError()
     
-    # ======================================================================
+    # Define loss function.
+    criterion = nn.CrossEntropyLoss()
+    
+    
     # Define optimizer function.
-    # ----------------- YOUR CODE HERE ----------------------
-    #
-    # Remove NotImplementedError and assign appropriate optimizer with learning rate and other paramters.
-    optimizer = NotImplementedError()
+    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
         
     
     # Create transformations to apply to each data sample 
@@ -187,13 +167,23 @@ def run_main(FLAGS):
         
         if test_accuracy > best_accuracy:
             best_accuracy = test_accuracy
+        print("epoch: {:d}, best accuracy: {:2.2f}".format(epoch, best_accuracy))
+        writer.add_scalar('Loss/train', train_loss, epoch)
+        writer.add_scalar('Loss/test', test_loss, epoch)
+        writer.add_scalar('Accuracy/train', train_accuracy, epoch)
+        writer.add_scalar('Accuracy/test', test_accuracy, epoch)
     
     
     print("accuracy is {:2.2f}".format(best_accuracy))
     
     print("Training and evaluation finished")
     
-    
+
+# python testCNN.py --mode 1 --learning_rate 0.1 --num_epochs 60 --batch_size 10 --log_dir log1
+# python testCNN.py --mode 2 --learning_rate 0.1 --num_epochs 60 --batch_size 10 --log_dir log2
+# python testCNN.py --mode 3 --learning_rate 0.03 --num_epochs 60 --batch_size 10 --log_dir log3
+# python testCNN.py --mode 4 --learning_rate 0.03 --num_epochs 60 --batch_size 10 --log_dir log4
+# python testCNN.py --mode 5 --learning_rate 0.03 --num_epochs 40 --batch_size 10 --log_dir log5 
 if __name__ == '__main__':
     # Set parameters for Sparse Autoencoder
     parser = argparse.ArgumentParser('CNN Exercise.')

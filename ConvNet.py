@@ -9,7 +9,18 @@ class ConvNet(nn.Module):
         
         # Define various layers here, such as in the tutorial example
         # self.conv1 = nn.Conv2D(...)
-        
+        # for MNISt dataset, the input size is 28x28
+        self.fc1 = nn.Linear(28*28, 10)
+
+        self.fc2 = nn.Linear(28*28, 100)
+        self.fc3 = nn.Linear(100, 10)
+
+        self.fc4 = nn.Linear(28*28, 1000)
+        self.fc5 = nn.Linear(1000, 10)
+
+        self.conv1 = nn.Conv2d(1, 40, 5, stride = 1)
+        self.conv2 = nn.Conv2d(40, 49, 5, stride = 1)
+        self.pool = nn.MaxPool2d(2, 2)
         # This will select the forward pass function based on mode for the ConvNet.
         # Based on the question, you have 5 modes available for step 1 to 5.
         # During creation of each ConvNet model, you will assign one of the valid mode.
@@ -31,64 +42,42 @@ class ConvNet(nn.Module):
         
     # Baseline model. step 1
     def model_1(self, X):
-        # ======================================================================
         # One fully connected layer.
-        #
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-        # Uncomment the following return stmt once method implementation is done.
-        # return  fcl
-        # Delete line return NotImplementedError() once method is implemented.
-        return NotImplementedError()
+        x = F.sigmoid(self.fc1(X.view(-1, 28*28)))
+        return x
 
     # Use two convolutional layers.
     def model_2(self, X):
-        # ======================================================================
         # Two convolutional layers + one fully connnected layer.
-        #
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-        # Uncomment the following return stmt once method implementation is done.
-        # return  fcl
-        # Delete line return NotImplementedError() once method is implemented.
-        return NotImplementedError()
+        x = self.pool(F.sigmoid(self.conv1(X)))
+        x = self.pool(F.sigmoid(self.conv2(x)))
+        x = x.view(-1, 49 * 4 * 4)
+        x = F.sigmoid(self.fc1(x))
+        return x
 
     # Replace sigmoid with ReLU.
     def model_3(self, X):
-        # ======================================================================
         # Two convolutional layers + one fully connected layer, with ReLU.
-        #
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-        # Uncomment the following return stmt once method implementation is done.
-        # return  fcl
-        # Delete line return NotImplementedError() once method is implemented.
-        return NotImplementedError()
+        x = self.pool(F.relu(self.conv1(X)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 49 * 4 * 4)
+        x = F.relu(self.fc1(x))
+        return x
 
     # Add one extra fully connected layer.
     def model_4(self, X):
-        # ======================================================================
         # Two convolutional layers + two fully connected layers, with ReLU.
-        #
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-        # Uncomment the following return stmt once method implementation is done.
-        # return  fcl
-        # Delete line return NotImplementedError() once method is implemented.
-        return NotImplementedError()
+        x = self.pool(F.relu(self.conv1(X)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 49 * 4 * 4)
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
     # Use Dropout now.
     def model_5(self, X):
-        # ======================================================================
         # Two convolutional layers + two fully connected layers, with ReLU.
         # and  + Dropout.
-        #
-        # ----------------- YOUR CODE HERE ----------------------
-        #
-
-        # Uncomment the following return stmt once method implementation is done.
-        # return  fcl
-        # Delete line return NotImplementedError() once method is implemented.
         return NotImplementedError()
     
     
