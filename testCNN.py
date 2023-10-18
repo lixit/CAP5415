@@ -12,7 +12,7 @@ from ConvNet import ConvNet
 import argparse
 import numpy as np 
 
-def train(model, device, train_loader, optimizer, criterion, epoch, batch_size):
+def train(model, device, train_loader, optimizer, criterion, epoch, batch_size, writer):
     '''
     Trains the model for an epoch and optimizes it.
     model: The model to train. Should already be in correct device.
@@ -64,14 +64,16 @@ def train(model, device, train_loader, optimizer, criterion, epoch, batch_size):
         
     train_loss = float(np.mean(losses))
     train_acc = correct / ((batch_idx+1) * batch_size)
-    print('Train set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
-        train_loss, correct, (batch_idx+1) * batch_size,
-        100. * correct / ((batch_idx+1) * batch_size)))
+   
+    output = 'Train set: Epoch: {} Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format( epoch,
+        train_loss, correct, (batch_idx+1) * batch_size, 100. * train_acc)
+    writer.add_text('Train', output, epoch)
+    print(output)
     return train_loss, train_acc
     
 
 
-def test(model, device, test_loader):
+def test(model, device, test_loader, epoch, writer):
     '''
     Tests the model.
     model: The model to train. Should already be in correct device.
@@ -110,7 +112,9 @@ def test(model, device, test_loader):
 
     test_loss = float(np.mean(losses))
     accuracy = 100. * correct / len(test_loader.dataset)
-
+    output = 'Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+        test_loss, correct, len(test_loader.dataset), accuracy)
+    writer.add_text('Test', output, epoch)
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset), accuracy))
     
@@ -162,12 +166,12 @@ def run_main(FLAGS):
     # Run training for n_epochs specified in config 
     for epoch in range(1, FLAGS.num_epochs + 1):
         train_loss, train_accuracy = train(model, device, train_loader,
-                                            optimizer, criterion, epoch, FLAGS.batch_size)
-        test_loss, test_accuracy = test(model, device, test_loader)
+                                            optimizer, criterion, epoch, FLAGS.batch_size, writer)
+        test_loss, test_accuracy = test(model, device, test_loader, epoch, writer)
         
         if test_accuracy > best_accuracy:
             best_accuracy = test_accuracy
-        print("epoch: {:d}, best accuracy: {:2.2f}".format(epoch, best_accuracy))
+        print("epoch: {:d}, best test accuracy: {:2.2f}".format(epoch, best_accuracy))
         writer.add_scalar('Loss/train', train_loss, epoch)
         writer.add_scalar('Loss/test', test_loss, epoch)
         writer.add_scalar('Accuracy/train', train_accuracy, epoch)
@@ -179,11 +183,11 @@ def run_main(FLAGS):
     print("Training and evaluation finished")
     
 
-# python testCNN.py --mode 1 --learning_rate 0.1 --num_epochs 60 --batch_size 10 --log_dir log1
-# python testCNN.py --mode 2 --learning_rate 0.1 --num_epochs 60 --batch_size 10 --log_dir log2
-# python testCNN.py --mode 3 --learning_rate 0.03 --num_epochs 60 --batch_size 10 --log_dir log3
-# python testCNN.py --mode 4 --learning_rate 0.03 --num_epochs 60 --batch_size 10 --log_dir log4
-# python testCNN.py --mode 5 --learning_rate 0.03 --num_epochs 40 --batch_size 10 --log_dir log5 
+# python testCNN.py --mode 1 --learning_rate 0.1 --num_epochs 60 --batch_size 10 --log_dir log1 > log1/output.txt
+# python testCNN.py --mode 2 --learning_rate 0.1 --num_epochs 60 --batch_size 10 --log_dir log2 > log2/output.txt
+# python testCNN.py --mode 3 --learning_rate 0.03 --num_epochs 60 --batch_size 10 --log_dir log3 > log3/output.txt
+# python testCNN.py --mode 4 --learning_rate 0.03 --num_epochs 60 --batch_size 10 --log_dir log4 > log4/output.txt
+# python testCNN.py --mode 5 --learning_rate 0.03 --num_epochs 40 --batch_size 10 --log_dir log5 > log5/output.txt
 if __name__ == '__main__':
     # Set parameters for Sparse Autoencoder
     parser = argparse.ArgumentParser('CNN Exercise.')
