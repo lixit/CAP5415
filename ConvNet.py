@@ -89,13 +89,13 @@ class ConvNet(nn.Module):
     # Use Dropout now.
     def model_5(self, X):
         # Two convolutional layers + two fully connected hidden layers + one output layer, with ReLU.
-        # and  + Dropout.
-        x = self.dropout(X)
-        x = self.pool(F.relu(self.conv1(x)))
+        # add Dropout.
+        x = self.pool(F.relu(self.conv1(X)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 49 * 4 * 4)
-        # fc4 has 1000 neurons
+        x = self.dropout(x)
         x = F.relu(self.fc4(x))
+        x = self.dropout(x)
         x = F.relu(self.fc5(x))
         x = self.fc2(x)
         return x
