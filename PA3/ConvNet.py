@@ -73,7 +73,6 @@ class ConvNet(nn.Module):
     # autoencoder
     def model_6(self, X):
         x = self.encoder(X.view(-1, 28*28))
-        print(x.shape)
         # decoder
         x = self.decoder(x)
         return x.view(-1, 1, 28, 28)

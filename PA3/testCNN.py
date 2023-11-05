@@ -87,6 +87,8 @@ def test(model, device, test_loader, writer):
     
     losses = []
     correct = 0
+
+    count = 0
     
     # Set torch.no_grad() to disable gradient computation and backpropagation
     with torch.no_grad():
@@ -99,27 +101,35 @@ def test(model, device, test_loader, writer):
             for i in digits:
                 if target.cpu().numpy() == i:
                     if counts[i] != 2:
+                        count += 1
                         outputs[i].append(data.reshape(28, 28).cpu().numpy())
                         outputs[i].append(model(data).reshape(28, 28).cpu().numpy())
                         counts[i] += 1
                     
                     # only one match possible, no need to compare the rest
-                    continue
+                    break
+            # stop loop the test set
+            if count == 20:
+                break
                 
-    f, axarr = plt.subplots(10, 4)
+    f, axarr = plt.subplots(10, 4, gridspec_kw = {'wspace':0, 'hspace':0})
 
     # print the result
     for i in digits:
-        print(type(outputs[i][0]))
-        axarr[i, 0].imshow(outputs[i][0])
-        axarr[i, 1].imshow(outputs[i][1])
-        axarr[i, 2].imshow(outputs[i][2])
-        axarr[i, 3].imshow(outputs[i][3])
-        axarr[i, 0].set_title("input1")
-        axarr[i, 1].set_title("output1")
-        axarr[i, 2].set_title("input2")
-        axarr[i, 3].set_title("input2")
-
+        axarr[i, 0].imshow(outputs[i][0], cmap='gray')
+        axarr[i, 0].axis('off')
+        axarr[i, 1].imshow(outputs[i][1], cmap='gray')
+        axarr[i, 1].axis('off')
+        axarr[i, 2].imshow(outputs[i][2], cmap='gray')
+        axarr[i, 2].axis('off')
+        axarr[i, 3].imshow(outputs[i][3], cmap='gray')
+        axarr[i, 3].axis('off')
+        if i == 0:
+            axarr[i, 0].set_title("input1")
+            axarr[i, 1].set_title("output1")
+            axarr[i, 2].set_title("input2")
+            axarr[i, 3].set_title("input2")
+    
     plt.show()
     return
     
