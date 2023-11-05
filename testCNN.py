@@ -140,7 +140,7 @@ def run_main(FLAGS):
     
     
     # Define optimizer function.
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=FLAGS.learning_rate, momentum=0.9)
         
     
     # Create transformations to apply to each data sample 
