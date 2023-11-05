@@ -1,7 +1,7 @@
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 import numpy as np
-
+import argparse
 
 
 def knn(X_train, y_train, X_test, y_test, k):
@@ -40,17 +40,26 @@ def knn(X_train, y_train, X_test, y_test, k):
     print("Accuracy: ", correct / X_test.shape[0])
         
 
-def main():
+def main(FLAGS):
     digits = load_digits()
 
-    X_train, X_test, y_train, y_test = train_test_split(digits.data, digits.target, test_size=500)
+    X_train, X_test, y_train, y_test = train_test_split(digits.data, digits.target, test_size=500, random_state=42)
 
     print("train size: ", X_train.shape[0])
     print("test size: ", X_test.shape[0])
+    print("k: ", FLAGS.k)
 
-    knn(X_train, y_train, X_test, y_test, k=5)
+    knn(X_train, y_train, X_test, y_test, FLAGS.k)
 
         
 
 if __name__ == '__main__':
-    main()
+
+    parser = argparse.ArgumentParser('CNN Exercise.')
+    parser.add_argument('--k',
+                        type=int, default=1,
+                        help='K value')
+    
+    FLAGS, unparsed = parser.parse_known_args()
+
+    main(FLAGS)
