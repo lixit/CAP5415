@@ -147,6 +147,8 @@ def run_main(FLAGS):
     # Initialize the model and send to device 
     model = ConvNet(FLAGS.mode).to(device)
     
+    # pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # print("Total number of trainable parameters: ", pytorch_total_params)
     
     # Define loss function.
     criterion = nn.CrossEntropyLoss()
