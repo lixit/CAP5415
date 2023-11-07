@@ -203,7 +203,7 @@ def run_main(FLAGS):
     
     
 # for train
-# python testCNN.py --mode 6 --no-test --loss_function MSELoss --learning_rate 0.0001 --num_epochs 10 --batch_size 10 --log_dir log
+# python testCNN.py --mode 6 --no-test --loss_function MSELoss --learning_rate 0.0005 --num_epochs 10 --batch_size 10 --log_dir log
 # for test
 # python testCNN.py --mode 6 --test --loss_function MSELoss --learning_rate 0.0001 --num_epochs 10 --batch_size 10 --log_dir log
 if __name__ == '__main__':

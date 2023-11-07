@@ -21,7 +21,7 @@ class ConvNet(nn.Module):
             nn.Linear(128, 256), # (128 + 1) * 256
             nn.ReLU(True),
             nn.Linear(256, 28*28), # (256 + 1) * 28 * 28
-            nn.Tanh())
+            nn.Sigmoid()) # output between 0 and 1
         
         self.encoder_cnn = nn.Sequential(
             nn.Conv2d(1, 40, kernel_size=3, stride = 1,padding=1), # b, 40, 28, 28
@@ -38,7 +38,7 @@ class ConvNet(nn.Module):
             nn.Upsample(scale_factor=2, mode='bilinear'), # b, 1, 28, 28
             nn.ReLU(True),
             nn.Conv2d(1, 1, kernel_size=3, stride = 1,padding=1), # b, 1, 28, 28
-            nn.Tanh())
+            nn.Sigmoid()) # output between 0 and 1
 
 
         # # this use transpose convolution
