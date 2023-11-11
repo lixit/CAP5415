@@ -203,7 +203,8 @@ def run_main(FLAGS):
     
 # CIFAR10 has 50000 training samples and 10000 test samples
 # Each sample is 32x32x3
-# python testCNN.py --mode 1 --learning_rate 0.001 --num_epochs 30 --batch_size 10 --log_dir log
+# python testCNN.py --mode 1 --learning_rate 0.001 --num_epochs 30 --batch_size 10 --log_dir log1
+# python testCNN.py --mode 2 --learning_rate 0.001 --num_epochs 30 --batch_size 10 --log_dir log2
 if __name__ == '__main__':
     # Set parameters for Sparse Autoencoder
     parser = argparse.ArgumentParser('CNN Exercise.')

@@ -77,7 +77,7 @@ class ConvNet(nn.Module):
     # Baseline model. step 1
     def model_1(self, X):
         x = self.conv1(X)
-        x = self.classifier1(x.view(-1, 384 * 4 * 4))
+        x = self.classifier1(x.view(-1, 384 * 2 * 2))
         return x
     
     def model_2(self, X):
