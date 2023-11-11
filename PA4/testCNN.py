@@ -2,15 +2,26 @@ from __future__ import print_function
 import argparse
 import os
 import torch
+import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
 from torch.utils.tensorboard import SummaryWriter
 from ConvNet import ConvNet 
 import argparse
-import numpy as np 
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def show(img):
+    img = img / 2 + 0.5   # unnormalize
+    npimg = img.cpu().numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0))) 
+    plt.show()
+
 
 def train(model, device, train_loader, optimizer, criterion, epoch, batch_size, writer):
     '''
@@ -34,7 +45,8 @@ def train(model, device, train_loader, optimizer, criterion, epoch, batch_size, 
     # Iterate over entire training samples (1 epoch)
     for batch_idx, batch_sample in enumerate(train_loader):
         data, target = batch_sample
-        
+
+        # show(tv.utils.make_grid(data))
         # Push data/label to correct device
         data, target = data.to(device), target.to(device)
         
@@ -73,7 +85,7 @@ def train(model, device, train_loader, optimizer, criterion, epoch, batch_size, 
     
 
 
-def test(model, device, test_loader, epoch, writer):
+def test(model, device, test_loader, criterion, epoch, writer):
     '''
     Tests the model.
     model: The model to train. Should already be in correct device.
@@ -92,13 +104,11 @@ def test(model, device, test_loader, epoch, writer):
         for batch_idx, sample in enumerate(test_loader):
             data, target = sample
             data, target = data.to(device), target.to(device)
-            
 
             # Predict for data by doing forward pass
             output = model(data)
             
             # Compute loss based on same criterion as training
-            criterion = nn.CrossEntropyLoss()
             loss = criterion(output, target)
             
             # Append loss to overall test loss
@@ -119,7 +129,9 @@ def test(model, device, test_loader, epoch, writer):
         test_loss, correct, len(test_loader.dataset), accuracy))
     
     return test_loss, accuracy
-    
+
+
+
 
 def run_main(FLAGS):
 
@@ -134,40 +146,47 @@ def run_main(FLAGS):
     # Initialize the model and send to device 
     model = ConvNet(FLAGS.mode).to(device)
     
-    
-    # Define loss function.
+    # nn.CrossEntropyLoss() combines nn.LogSoftmax() and nn.NLLLoss() in one single class.
     criterion = nn.CrossEntropyLoss()
-    
     
     # Define optimizer function.
     optimizer = optim.SGD(model.parameters(), lr=FLAGS.learning_rate, momentum=0.9)
         
     
-    # Create transformations to apply to each data sample 
-    # Can specify variations such as image flip, color flip, random crop, ...
+    # output of torchvision datasets are PILImage images of range [0, 1].
+    # We transform them to Tensors of normalized range [-1, 1]
     transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
     
     # Load datasets for training and testing
     # Inbuilt datasets available in torchvision (check documentation online)
-    dataset1 = datasets.MNIST('./data/', train=True, download=True,
+    training_data = datasets.CIFAR10('./data/', train=True, download=True,
                        transform=transform)
-    dataset2 = datasets.MNIST('./data/', train=False,
+    test_data = datasets.CIFAR10('./data/', train=False,
                        transform=transform)
-    train_loader = DataLoader(dataset1, batch_size = FLAGS.batch_size, 
+    train_loader = DataLoader(training_data, batch_size = FLAGS.batch_size, 
                                 shuffle=True, num_workers=4)
-    test_loader = DataLoader(dataset2, batch_size = FLAGS.batch_size, 
+    test_loader = DataLoader(test_data, batch_size = FLAGS.batch_size, 
                                 shuffle=False, num_workers=4)
     
+    # dataiter = iter(train_loader)
+    # images, labels = next(dataiter)
+    # show(torchvision.utils.make_grid(images))
+    
+    # classes = ('plane', 'car', 'bird', 'cat',
+    #        'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    # # print labels
+    # print(' '.join(f'{classes[labels[j]]:5s}' for j in range(FLAGS.batch_size)))
+
     best_accuracy = 0.0
     
     # Run training for n_epochs specified in config 
     for epoch in range(1, FLAGS.num_epochs + 1):
         train_loss, train_accuracy = train(model, device, train_loader,
                                             optimizer, criterion, epoch, FLAGS.batch_size, writer)
-        test_loss, test_accuracy = test(model, device, test_loader, epoch, writer)
+        test_loss, test_accuracy = test(model, device, test_loader, criterion, epoch, writer)
         
         if test_accuracy > best_accuracy:
             best_accuracy = test_accuracy
@@ -177,17 +196,14 @@ def run_main(FLAGS):
         writer.add_scalar('Accuracy/train', train_accuracy, epoch)
         writer.add_scalar('Accuracy/test', test_accuracy, epoch)
     
-    
+    torch.save(model.state_dict(), "cifar10.pt")
     print("accuracy is {:2.2f}".format(best_accuracy))
     
     print("Training and evaluation finished")
     
-
-# python testCNN.py --mode 1 --learning_rate 0.0005 --num_epochs 60 --batch_size 10 --log_dir log1 > log1/output.txt
-# python testCNN.py --mode 2 --learning_rate 0.0005 --num_epochs 60 --batch_size 10 --log_dir log2 > log2/output.txt
-# python testCNN.py --mode 3 --learning_rate 0.0005 --num_epochs 60 --batch_size 10 --log_dir log3 > log3/output.txt
-# python testCNN.py --mode 4 --learning_rate 0.0005 --num_epochs 60 --batch_size 10 --log_dir log4 > log4/output.txt
-# python testCNN.py --mode 5 --learning_rate 0.0005 --num_epochs 40 --batch_size 10 --log_dir log5 > log5/output.txt
+# CIFAR10 has 50000 training samples and 10000 test samples
+# Each sample is 32x32x3
+# python testCNN.py --mode 1 --learning_rate 0.001 --num_epochs 30 --batch_size 10 --log_dir log
 if __name__ == '__main__':
     # Set parameters for Sparse Autoencoder
     parser = argparse.ArgumentParser('CNN Exercise.')
